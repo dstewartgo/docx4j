@@ -19,12 +19,6 @@
  */
 package org.docx4j.convert.out.fo;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-
 import org.docx4j.UnitsOfMeasurement;
 import org.docx4j.XmlUtils;
 import org.docx4j.convert.out.FOSettings;
@@ -55,6 +49,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.DocumentFragment;
 import org.w3c.dom.Node;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 
 
@@ -113,8 +113,10 @@ public class LayoutMasterSetBuilder {
 		startEvent.publish();
 		
 //		log.debug(wordMLPackage.getMainDocumentPart().getXML());
-		
-		log.debug("incoming LMS: " + XmlUtils.marshaltoString(lms, Context.getXslFoContext()));
+
+        if(log.isDebugEnabled()) {
+            log.debug("incoming LMS: " + XmlUtils.marshaltoString(lms, Context.getXslFoContext()));
+        }
 		
 		// Make a copy of it
 		Set<String> relationshipTypes = new TreeSet<String>();
@@ -154,7 +156,9 @@ public class LayoutMasterSetBuilder {
 		} catch (Exception e) {
 			log.error(e.getMessage(), e);
 		}
-		log.debug("resulting LMS: " + XmlUtils.marshaltoString(lms, Context.getXslFoContext()));
+        if(log.isDebugEnabled()) {
+            log.debug("resulting LMS: " + XmlUtils.marshaltoString(lms, Context.getXslFoContext()));
+        }
 		
 		new EventFinished(startEvent).publish();
 		
@@ -367,7 +371,10 @@ public class LayoutMasterSetBuilder {
 		RegionBody rb = getFactory().createRegionBody();		
 		rb.setMarginLeft("0mm");
 		rb.setMarginRight("0mm");
-		
+
+		rb.setColumnCount(String.valueOf(page.getColsNum())); //Number of Equal Width Columns
+		rb.setColumnGap(UnitsOfMeasurement.twipToBest(page.getColsSpacing())); //Spacing Between Equal Width Columns
+
 		float halfPageHeight = page.getPgSz().getH().intValue()/40; // convert from twips, then * 0.5
 		String halfPageHeightPts = halfPageHeight + "pt";  
 		
@@ -419,8 +426,8 @@ public class LayoutMasterSetBuilder {
 		
 		return spm;
 	}
-	
-	
+
+
 	private static ObjectFactory getFactory() {
 		if (factory == null) factory = new ObjectFactory();
 		return factory;
