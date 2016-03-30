@@ -52,12 +52,18 @@ public class Context {
 		log.info("java.vendor="+System.getProperty("java.vendor"));
 		log.info("java.version="+System.getProperty("java.version"));
 		
-		org.docx4j.jaxb.Context.searchManifestsForJAXBImplementationInfo( ClassLoader.getSystemClassLoader());
-		if (Thread.currentThread().getContextClassLoader()==null) {
-			log.warn("ContextClassLoader is null for current thread");
-			// Happens with IKVM 
-		} else if (ClassLoader.getSystemClassLoader()!=Thread.currentThread().getContextClassLoader()) {
-			org.docx4j.jaxb.Context.searchManifestsForJAXBImplementationInfo(Thread.currentThread().getContextClassLoader());
+		// This stuff is just debugging diagnostics
+		try {
+			org.docx4j.jaxb.Context.searchManifestsForJAXBImplementationInfo( ClassLoader.getSystemClassLoader());
+			if (Thread.currentThread().getContextClassLoader()==null) {
+				log.warn("ContextClassLoader is null for current thread");
+				// Happens with IKVM 
+			} else if (ClassLoader.getSystemClassLoader()!=Thread.currentThread().getContextClassLoader()) {
+				org.docx4j.jaxb.Context.searchManifestsForJAXBImplementationInfo(Thread.currentThread().getContextClassLoader());
+			}
+		} catch ( java.security.AccessControlException e) {
+			// Google AppEngine throws this, at com.google.apphosting.runtime.security.CustomSecurityManager.checkPermission
+			log.warn("Caught/ignored " + e.getMessage());
 		}
 		
 		Object namespacePrefixMapper;

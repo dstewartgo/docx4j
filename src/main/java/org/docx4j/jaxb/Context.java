@@ -164,7 +164,7 @@ public class Context {
 										
 			
 		} catch (Exception ex) {
-			log.error("Cannot initialize context", ex);
+			log.error(ex.getMessage(), ex);
 		}				
       jc = tempContext;
 	}
