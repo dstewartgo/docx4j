@@ -157,6 +157,20 @@ public final class CustomXmlDataStoragePart extends Part implements CustomXmlPar
 			throws Docx4JException {
 		return getData().xpathGetString(xpath, prefixMappings);
 	}
+	
+	/**
+	 * @since 3.3.1
+	 */
+	@Override
+	public String cachedXPathGetString(String xpath, String prefixMappings) throws Docx4JException {
+		return getData().cachedXPathGetString(xpath, prefixMappings);		
+	}
+	
+	@Override
+	public void discardCacheXPathObject() {
+		getData().discardCacheXPathObject();
+		
+	}	
 
 	@Override
 	public List<Node> xpathGetNodes(String xpathString, String prefixMappings)

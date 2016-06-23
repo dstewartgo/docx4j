@@ -23,6 +23,7 @@ package org.docx4j.wml;
 
 import java.util.ArrayList;
 import java.util.List;
+
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
@@ -30,6 +31,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlElementRef;
 import javax.xml.bind.annotation.XmlElementRefs;
 import javax.xml.bind.annotation.XmlType;
+
 import org.docx4j.math.CTAcc;
 import org.docx4j.math.CTBar;
 import org.docx4j.math.CTBorderBox;
@@ -131,9 +133,11 @@ public class RunTrackChange
         @XmlElementRef(name = "customXmlInsRangeEnd", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
         @XmlElementRef(name = "limLow", namespace = "http://schemas.openxmlformats.org/officeDocument/2006/math", type = JAXBElement.class),
         @XmlElementRef(name = "customXml", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
-        @XmlElementRef(name = "moveTo", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class)
+        @XmlElementRef(name = "moveTo", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
+        @XmlElementRef(name = "bdo", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
+        @XmlElementRef(name = "dir", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class)        
     })
-    protected List<Object> accOrBarOrBox;
+    protected List<Object> accOrBarOrBox  = new ArrayListWml<Object>(this);
 
     /**
      * Gets the value of the accOrBarOrBox property.
@@ -202,12 +206,14 @@ public class RunTrackChange
      * {@link JAXBElement }{@code <}{@link CTLimLow }{@code >}
      * {@link JAXBElement }{@code <}{@link CTCustomXmlRun }{@code >}
      * {@link JAXBElement }{@code <}{@link RunTrackChange }{@code >}
+     * {@link JAXBElement }{@code <}{@link org.docx4j.wml.P.Bdo }{@code >}
+     * {@link JAXBElement }{@code <}{@link org.docx4j.wml.P.Dir }{@code >}
      * 
      * 
      */
     public List<Object> getAccOrBarOrBox() {
         if (accOrBarOrBox == null) {
-            accOrBarOrBox = new ArrayList<Object>();
+            accOrBarOrBox  = new ArrayListWml<Object>(this);
         }
         return this.accOrBarOrBox;
     }

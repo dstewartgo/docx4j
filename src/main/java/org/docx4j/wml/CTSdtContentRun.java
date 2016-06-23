@@ -21,10 +21,8 @@
 
 package org.docx4j.wml; 
 
-import org.jvnet.jaxb2_commons.ppp.Child;
-
-import java.util.ArrayList;
 import java.util.List;
+
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlAccessType;
@@ -34,8 +32,10 @@ import javax.xml.bind.annotation.XmlElementRefs;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.XmlTransient;
 import javax.xml.bind.annotation.XmlType;
+
 import org.docx4j.math.CTOMath;
 import org.docx4j.math.CTOMathPara;
+import org.jvnet.jaxb2_commons.ppp.Child;
 
 
 /**
@@ -96,9 +96,11 @@ public class CTSdtContentRun
         @XmlElementRef(name = "smartTag", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
         @XmlElementRef(name = "oMath", namespace = "http://schemas.openxmlformats.org/officeDocument/2006/math", type = JAXBElement.class),
         @XmlElementRef(name = "moveToRangeEnd", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
-        @XmlElementRef(name = "customXml", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class)
+        @XmlElementRef(name = "customXml", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
+        @XmlElementRef(name = "bdo", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class),
+        @XmlElementRef(name = "dir", namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main", type = JAXBElement.class)        
     })
-    protected List<Object> content;
+    protected List<Object> content = new ArrayListWml<Object>(this);
     @XmlTransient
     private Object parent;
 
@@ -152,12 +154,14 @@ public class CTSdtContentRun
      * {@link JAXBElement }{@code <}{@link CTOMath }{@code >}
      * {@link JAXBElement }{@code <}{@link CTMoveToRangeEnd }{@code >}
      * {@link JAXBElement }{@code <}{@link CTCustomXmlRun }{@code >}
+     * {@link JAXBElement }{@code <}{@link org.docx4j.wml.P.Bdo }{@code >}
+     * {@link JAXBElement }{@code <}{@link org.docx4j.wml.P.Dir }{@code >}
      * 
      * @since 2.7
      */
     public List<Object> getContent() {
         if (content == null) {
-            content = new ArrayList<Object>();
+            content  = new ArrayListWml<Object>(this);
         }
         return this.content;
     }

@@ -21,33 +21,29 @@
 
 package org.docx4j;
 
-import org.docx4j.jaxb.Context;
-import org.docx4j.jaxb.JAXBAssociation;
-import org.docx4j.jaxb.JaxbValidationEventHandler;
-import org.docx4j.jaxb.NamespacePrefixMapperUtils;
-import org.docx4j.jaxb.NamespacePrefixMappings;
-import org.docx4j.jaxb.XPathBinderAssociationIsPartialException;
-import org.docx4j.openpackaging.exceptions.Docx4JException;
-import org.docx4j.openpackaging.parts.JaxbXmlPart;
-import org.docx4j.utils.XPathFactoryUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import javax.xml.bind.Binder;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
+import javax.xml.bind.UnmarshalException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.util.JAXBResult;
 import javax.xml.bind.util.JAXBSource;
+import javax.xml.crypto.dsig.CanonicalizationMethod;
 import javax.xml.namespace.NamespaceContext;
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
@@ -58,24 +54,42 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.transform.ErrorListener;
 import javax.xml.transform.Templates;
-import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerConfigurationException;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringReader;
-import java.io.StringWriter;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+
+import org.apache.commons.io.IOUtils;
+import org.docx4j.jaxb.Context;
+import org.docx4j.jaxb.JAXBAssociation;
+import org.docx4j.jaxb.JAXBImplementation;
+import org.docx4j.jaxb.JaxbValidationEventHandler;
+import org.docx4j.jaxb.McIgnorableNamespaceDeclarator;
+import org.docx4j.jaxb.NamespacePrefixMapperUtils;
+import org.docx4j.jaxb.NamespacePrefixMappings;
+import org.docx4j.jaxb.XPathBinderAssociationIsPartialException;
+import org.docx4j.openpackaging.exceptions.Docx4JException;
+import org.docx4j.openpackaging.parts.JaxbXmlPart;
+import org.docx4j.org.apache.xml.security.Init;
+import org.docx4j.org.apache.xml.security.c14n.CanonicalizationException;
+import org.docx4j.org.apache.xml.security.c14n.Canonicalizer;
+import org.docx4j.org.apache.xml.security.c14n.InvalidCanonicalizerException;
+import org.docx4j.utils.XPathFactoryUtil;
+import org.docx4j.utils.XmlSerializerUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
+import org.w3c.dom.NamedNodeMap;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 public class XmlUtils {
 	
@@ -208,6 +222,8 @@ public class XmlUtils {
 						&& System.getProperty("java.vendor").startsWith("Oracle"))
 				|| (System.getProperty("java.version").startsWith("1.8")
 						&& System.getProperty("java.vendor").startsWith("Oracle"))
+				|| (System.getProperty("java.version").startsWith("1.9")
+						&& System.getProperty("java.vendor").startsWith("Oracle"))						
 				|| (System.getProperty("java.version").startsWith("1.7")
 						&& System.getProperty("java.vendor").startsWith("Jeroen")) // IKVM
 				) {
@@ -241,15 +257,23 @@ public class XmlUtils {
 		// Maybe we could, if docx4j always used this documentBuilderFactory.
 		try {
 			documentBuilderFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-		} catch (ParserConfigurationException e) { log.error(e.getMessage(), e); }
+		} catch (ParserConfigurationException e) { 
+			log.error(e.getMessage(), e); 
+		}
+		
 		documentBuilderFactory.setXIncludeAware(false);
 		documentBuilderFactory.setExpandEntityReferences(false);
+		
 		try {
 			documentBuilderFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-		} catch (ParserConfigurationException e) { log.error(e.getMessage(), e); }
+		} catch (ParserConfigurationException e) { 
+			log.error(e.getMessage(), e); 
+		}
 		try {
 			documentBuilderFactory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-		} catch (ParserConfigurationException e) { log.error(e.getMessage(), e); }
+		} catch (ParserConfigurationException e) { 
+			log.error(e.getMessage(), e); 
+		}
 //		try {
 //			documentBuilderFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
 //		} catch (ParserConfigurationException e) { log.error(e.getMessage(), e); }
@@ -412,11 +436,60 @@ public class XmlUtils {
 		}			
 		
 		Object o = null;
-		Unmarshaller u = jc.createUnmarshaller();						
-		u.setEventHandler(new org.docx4j.jaxb.JaxbValidationEventHandler());
-		o = u.unmarshal( xsr );
-		return o;
-	}
+		Unmarshaller u = jc.createUnmarshaller();
+		
+		JaxbValidationEventHandler eventHandler = new JaxbValidationEventHandler();
+//		if (is.markSupported()) {
+//			// Only fail hard if we know we can restart
+//			eventHandler.setContinue(false);
+//		}
+		u.setEventHandler(eventHandler);
+		try {
+			o = u.unmarshal( xsr );
+			return o;
+		} catch (UnmarshalException ue) {
+			
+			if (ue.getLinkedException()!=null 
+					&& ue.getLinkedException().getMessage().contains("entity")) {
+				
+				/*
+					Caused by: javax.xml.stream.XMLStreamException: ParseError at [row,col]:[10,19]
+					Message: The entity "xxe" was referenced, but not declared.
+						at com.sun.org.apache.xerces.internal.impl.XMLStreamReaderImpl.next(Unknown Source)
+						at com.sun.xml.internal.bind.v2.runtime.unmarshaller.StAXStreamConnector.bridge(Unknown Source)
+					 */
+				log.error(ue.getMessage(), ue);
+				throw ue;
+			}
+			
+			if (is.markSupported() ) {
+				// When reading from zip, we use a ByteArrayInputStream,
+				// which does support this.
+			
+				log.info("encountered unexpected content; pre-processing");
+				eventHandler.setContinue(true);
+									
+				try {
+					Templates mcPreprocessorXslt = JaxbValidationEventHandler.getMcPreprocessor();
+					is.reset();
+					JAXBResult result = XmlUtils.prepareJAXBResult(jc);
+					XmlUtils.transform(new StreamSource(is), 
+							mcPreprocessorXslt, null, result);
+					return //XmlUtils.unwrap(
+							result.getResult() ;	
+				} catch (Exception e) {
+					throw new JAXBException("Preprocessing exception", e);
+				}
+										
+			} else {
+				log.error(ue.getMessage(), ue);
+				log.error(".. and mark not supported");
+				throw ue;
+			}
+		}
+
+	}			
+	
 	
 	
 	/** Unmarshal a String as an object in the package org.docx4j.jaxb.document.
@@ -486,26 +559,26 @@ public class XmlUtils {
 	 * @see JaxbXmlPart.variableReplace which can invoke this more efficiently
 	 */
 	public static Object unmarshallFromTemplate(String wmlTemplateString, 
-			java.util.HashMap<String, String> mappings) throws JAXBException {
+			java.util.Map<String, ?> mappings) throws JAXBException {
 	    return unmarshallFromTemplate(wmlTemplateString, mappings, Context.jc);
 	 }
 	
 	public static Object unmarshallFromTemplate(String wmlTemplateString, 
-			java.util.HashMap<String, String> mappings, JAXBContext jc) throws JAXBException {
+			java.util.Map<String, ?> mappings, JAXBContext jc) throws JAXBException {
 	    String wmlString = replace(wmlTemplateString, 0, new StringBuilder(), mappings).toString();
 	    log.debug("Results of substitution: " + wmlString);
 	    return unmarshalString(wmlString, jc);
 	 }
 	
 	public static Object unmarshallFromTemplate(String wmlTemplateString, 
-			java.util.HashMap<String, String> mappings, JAXBContext jc, Class<?> declaredType) throws JAXBException {
+			java.util.Map<String, ?> mappings, JAXBContext jc, Class<?> declaredType) throws JAXBException {
 	      String wmlString = replace(wmlTemplateString, 0, new StringBuilder(), mappings).toString();
 	      return unmarshalString(wmlString, jc, declaredType);
 	   }
 	
 	
 	 private static StringBuilder replace(String wmlTemplateString, int offset, StringBuilder strB, 
-			 java.util.HashMap<String, String> mappings) {
+			 java.util.Map<String, ?> mappings) {
 		 
 	    int startKey = wmlTemplateString.indexOf("${", offset);
 	    if (startKey == -1)
@@ -514,12 +587,12 @@ public class XmlUtils {
 	       strB.append(wmlTemplateString.substring(offset, startKey));
 	       int keyEnd = wmlTemplateString.indexOf('}', startKey);
 	       String key = wmlTemplateString.substring(startKey + 2, keyEnd);
-	       String val = mappings.get(key);
+	       Object val = mappings.get(key);
 	       if (val==null) {
 	    	   log.warn("Invalid key '" + key + "' or key not mapped to a value");
 	    	   strB.append(key );
 	       } else {
-	    	   strB.append(val  );
+	    	   strB.append(val.toString()  );
 	       }
 	       return replace(wmlTemplateString, keyEnd + 1, strB, mappings);
 	    }
@@ -574,6 +647,47 @@ public class XmlUtils {
 		return marshaltoString(o, suppressDeclaration, prettyprint, jc );
 	}
 	
+	/**
+	 * @param prefixMapper
+	 * @param o
+	 * @since 3.1.1
+	 */
+	private static String setMcIgnorable(McIgnorableNamespaceDeclarator prefixMapper, Object o) {
+
+		if (o instanceof org.docx4j.wml.Document) {
+			String ignorables = ((org.docx4j.wml.Document)o).getIgnorable();
+			if (ignorables!=null) {
+				prefixMapper.setMcIgnorable(ignorables);				
+			}
+			return ignorables;
+		}
+		
+		return null;
+	}
+	
+	/** The below code removes superflouous namespaces.
+	 * 
+	 * It makes things neater, at the cost of some extra processing.
+	 *  
+	 * If kept, it could be configurable in docx4j props
+	 * 
+	 * @throws InvalidCanonicalizerException 
+	 * @throws CanonicalizationException 
+	 */
+	private static byte[] trimNamespaces(org.w3c.dom.Document doc, String ignorables) throws InvalidCanonicalizerException, CanonicalizationException {
+		
+    		// Example of what to do for a namespace not known to JAXB
+    		//doc.getDocumentElement().setAttributeNS("http://www.w3.org/2000/xmlns/" ,
+    		//		"xmlns:wp14", "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing");
+    		
+    		log.debug("Input to Canonicalizer: " + XmlUtils.w3CDomNodeToString(doc));
+    		
+    		Init.init();
+    		Canonicalizer c = Canonicalizer.getInstance(CanonicalizationMethod.EXCLUSIVE);
+    		return  c.canonicalizeSubtree(doc, ignorables);
+	}
+	
+	
 	/** Marshal to a String */ 
 	public static String marshaltoString(Object o, boolean suppressDeclaration, boolean prettyprint, 
 			JAXBContext jc ) {
@@ -601,7 +715,8 @@ public class XmlUtils {
 		try {			
 			Marshaller m=jc.createMarshaller();
 			NamespacePrefixMapperUtils.setProperty(m, 
-					NamespacePrefixMapperUtils.getPrefixMapper());			
+					NamespacePrefixMapperUtils.getPrefixMapper());	
+			String ignorables = setMcIgnorable(((McIgnorableNamespaceDeclarator)NamespacePrefixMapperUtils.getPrefixMapper()), o);
 			
 			if (prettyprint) {
 				m.setProperty("jaxb.formatted.output", true);
@@ -626,9 +741,18 @@ public class XmlUtils {
 				m.setProperty(Marshaller.JAXB_FRAGMENT,true);
 			}			
 			
-			StringWriter sWriter = new StringWriter();
-			m.marshal(o, sWriter);
-			return sWriter.toString();
+			if (Docx4jProperties.getProperty("docx4j.jaxb.marshal.canonicalize", false)) {
+				
+				org.w3c.dom.Document doc = marshaltoW3CDomDocument( o,  jc); // TODO rest of 
+				byte[] bytes = trimNamespaces(doc, ignorables);
+				
+				return new String(bytes, "UTF-8"); 
+				
+			} else {
+				StringWriter sWriter = new StringWriter();
+				m.marshal(o, sWriter);
+				return sWriter.toString();
+			}
 			
 /*          Alternative implementation
  
@@ -638,7 +762,7 @@ public class XmlUtils {
 		    return new String(bytes);
  */	
 			
-		} catch (JAXBException e) {
+		} catch (Exception e) {
                     throw new RuntimeException(e);
 		}
 	}
@@ -653,7 +777,8 @@ public class XmlUtils {
 
 			Marshaller m = jc.createMarshaller();
 			NamespacePrefixMapperUtils.setProperty(m, 
-					NamespacePrefixMapperUtils.getPrefixMapper());			
+					NamespacePrefixMapperUtils.getPrefixMapper());	
+			String ignorables = setMcIgnorable(((McIgnorableNamespaceDeclarator)NamespacePrefixMapperUtils.getPrefixMapper()), o);
 			
 			if (prettyprint) {
 				m.setProperty("jaxb.formatted.output", true);
@@ -663,15 +788,25 @@ public class XmlUtils {
 				m.setProperty(Marshaller.JAXB_FRAGMENT,true);
 			}			
 			
-			StringWriter sWriter = new StringWriter();
-
-			m.marshal( 
-					new JAXBElement(new QName(uri,local), declaredType, o ),
-					sWriter);
-
-			return sWriter.toString();
+			if (Docx4jProperties.getProperty("docx4j.jaxb.marshal.canonicalize", false)) {
+				
+				org.w3c.dom.Document doc = marshaltoW3CDomDocument( o,  jc, uri, local, declaredType);  
+				byte[] bytes = trimNamespaces(doc, ignorables);
+				
+				return new String(bytes, "UTF-8"); 
+				
+			} else {
 			
-		} catch (JAXBException e) {
+				StringWriter sWriter = new StringWriter();
+	
+				m.marshal( 
+						new JAXBElement(new QName(uri,local), declaredType, o ),
+						sWriter);
+	
+				return sWriter.toString();
+			}
+			
+		} catch (Exception e) {
                     throw new RuntimeException(e);
 		} 
 	}
@@ -693,7 +828,8 @@ public class XmlUtils {
 		try {			
 			Marshaller m=jc.createMarshaller();
 			NamespacePrefixMapperUtils.setProperty(m, 
-					NamespacePrefixMapperUtils.getPrefixMapper());			
+					NamespacePrefixMapperUtils.getPrefixMapper());
+			String ignorables = setMcIgnorable(((McIgnorableNamespaceDeclarator)NamespacePrefixMapperUtils.getPrefixMapper()), o);
 						
 			if (suppressDeclaration) {
 				m.setProperty(Marshaller.JAXB_FRAGMENT,true);
@@ -702,13 +838,20 @@ public class XmlUtils {
 			ByteArrayOutputStream os = new ByteArrayOutputStream();
 			m.marshal(o, os);			
 
-			// Now copy from the outputstream to inputstream
-			// See http://ostermiller.org/convert_java_outputstream_inputstream.html
+			if (Docx4jProperties.getProperty("docx4j.jaxb.marshal.canonicalize", false)) {
+
+				org.w3c.dom.Document doc = marshaltoW3CDomDocument( o,  jc);  
+				byte[] bytes = trimNamespaces(doc, ignorables);
+				return new java.io.ByteArrayInputStream(bytes);
+				
+			} else {
+				// Now copy from the outputstream to inputstream
+				// See http://ostermiller.org/convert_java_outputstream_inputstream.html
+				
+				return new java.io.ByteArrayInputStream(os.toByteArray());
+			}
 			
-			return new java.io.ByteArrayInputStream(os.toByteArray());
-			
-			
-		} catch (JAXBException e) {
+		} catch (Exception e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -728,15 +871,25 @@ public class XmlUtils {
 
 			Marshaller marshaller = jc.createMarshaller();
 
-			org.w3c.dom.Document doc = XmlUtils.getNewDocumentBuilder().newDocument();
-
 			NamespacePrefixMapperUtils.setProperty(marshaller, 
-					NamespacePrefixMapperUtils.getPrefixMapper());			
-
+					NamespacePrefixMapperUtils.getPrefixMapper());	
+			String ignorables = setMcIgnorable(((McIgnorableNamespaceDeclarator)NamespacePrefixMapperUtils.getPrefixMapper()), o);
+			
+			org.w3c.dom.Document doc = XmlUtils.getNewDocumentBuilder().newDocument();
 			marshaller.marshal(o, doc);
 
-			return doc;
-		} catch (JAXBException e) {
+			if (Docx4jProperties.getProperty("docx4j.jaxb.marshal.canonicalize", false)) {
+
+				byte[] bytes = trimNamespaces(doc, ignorables);
+				
+				DocumentBuilder builder = XmlUtils.getDocumentBuilderFactory().newDocumentBuilder();
+				return builder.parse(new ByteArrayInputStream(bytes));
+				
+			} else {
+
+				return doc;
+			}
+		} catch (Exception e) {
 		    throw new RuntimeException(e);
 		}
 	}
@@ -749,18 +902,31 @@ public class XmlUtils {
 		try {
 
 			Marshaller marshaller = jc.createMarshaller();
-			org.w3c.dom.Document doc = XmlUtils.getNewDocumentBuilder().newDocument();
 
 			NamespacePrefixMapperUtils.setProperty(marshaller, 
 					NamespacePrefixMapperUtils.getPrefixMapper());			
+			String ignorables = setMcIgnorable(((McIgnorableNamespaceDeclarator)NamespacePrefixMapperUtils.getPrefixMapper()), o);
 
+			org.w3c.dom.Document doc = XmlUtils.getNewDocumentBuilder().newDocument();
 			// See http://weblogs.java.net/blog/kohsuke/archive/2006/03/why_does_jaxb_p.html
 			marshaller.marshal( 
 					new JAXBElement(new QName(uri,local), declaredType, o ),
 					doc);
 
-			return doc;
-		} catch (JAXBException e) {
+			
+			if (Docx4jProperties.getProperty("docx4j.jaxb.marshal.canonicalize", false)) {
+
+				byte[] bytes = trimNamespaces(doc, ignorables);
+				
+				DocumentBuilder builder = XmlUtils.getDocumentBuilderFactory().newDocumentBuilder();
+				return builder.parse(new ByteArrayInputStream(bytes));
+				
+			} else {
+
+				return doc;
+			}
+
+		} catch (Exception e) {
 		    throw new RuntimeException(e);
 		}
 	}
@@ -826,20 +992,33 @@ public class XmlUtils {
    	 		
 		StringWriter sw = new StringWriter();
 		try {
-				Transformer serializer = transformerFactory.newTransformer();
-				serializer.setOutputProperty(javax.xml.transform.OutputKeys.OMIT_XML_DECLARATION, "yes");
-				serializer.setOutputProperty(javax.xml.transform.OutputKeys.METHOD, "xml");				
-				//serializer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
-				serializer.transform( new DOMSource(n) , new StreamResult(sw) );				
-				return sw.toString();
+			
+			XmlSerializerUtil.serialize(new DOMSource(n) , new StreamResult(sw), true, true);
+			return sw.toString();
 				//log.debug("serialised:" + n);
-			} catch (Exception e) {
-				// Unexpected!
-				e.printStackTrace();
-				return null;
-			} 
+			
+		} catch (Exception e) {
+			// Unexpected!
+			log.error(e.getMessage(), e);
+			return null;
+		} 
     }
 
+    /**
+     * @param n
+     * @param os
+     * @throws Docx4JException 
+     * 
+     * @Since 3.3.0
+     */
+    public static void w3CDomNodeToOutputStream(Node n, OutputStream os) throws Docx4JException   {
+      	 
+		// Q: Why doesn't Java have a nice neat way of getting the XML as a String??   
+		// A: See comments at http://stackoverflow.com/questions/2325388/java-shortest-way-to-pretty-print-to-stdout-a-org-w3c-dom-document
+
+		XmlSerializerUtil.serialize(new DOMSource(n) , new StreamResult(os), true, true);
+    }
+    
 	/** Use DocumentBuilderFactory to create and return a new w3c dom Document. */ 
 	public static org.w3c.dom.Document neww3cDomDocument() {
 		
@@ -912,7 +1091,17 @@ public class XmlUtils {
 			  javax.xml.transform.Source xsltSource) throws TransformerConfigurationException {
     	    
     	return transformerFactory.newTemplates(xsltSource);
-    }    
+    }   
+    
+    private static final String S_BUILTIN_EXTENSIONS_URL = "http://xml.apache.org/xalan"; 
+    
+    
+    private static final String S_BUILTIN_EXTENSIONS_UNIVERSAL =
+            "{" + S_BUILTIN_EXTENSIONS_URL + "}";
+    
+    
+    private static final String S_KEY_CONTENT_HANDLER =
+            S_BUILTIN_EXTENSIONS_UNIVERSAL + "content-handler";    
 
     /**
      * 
@@ -928,7 +1117,7 @@ public class XmlUtils {
     					  javax.xml.transform.Templates template, 
     					  Map<String, Object> transformParameters, 
     					  javax.xml.transform.Result result) throws Docx4JException {
-    	
+    	    	
     	if (source == null ) {
     		Throwable t = new Throwable();
     		throw new Docx4JException( "Null Source doc", t);
@@ -940,18 +1129,74 @@ public class XmlUtils {
 		// A Transformer may be used multiple times. Parameters and output properties 
 		// are preserved across transformations.		
 		javax.xml.transform.Transformer xformer;
-    try {
-      xformer = template.newTransformer();
-    } catch (TransformerConfigurationException e) {
-      throw new Docx4JException("The Transformer is ill-configured", e);
-    }
-		if (!xformer.getClass().getName().equals(
+	    try {
+	      xformer = template.newTransformer();
+	    } catch (TransformerConfigurationException e) {
+	      throw new Docx4JException("The Transformer is ill-configured", e);
+	    }
+	    	    
+	    log.info("Using " + xformer.getClass().getName());
+	    
+		if (xformer.getClass().getName().equals(
 				"org.apache.xalan.transformer.TransformerImpl")) {
+			
+			if (Docx4jProperties.getProperty("docx4j.xalan.XALANJ-2419.workaround", false)) {
+			    // Use our patched serializer, which fixes Unicode astral character
+		    	// issue. See https://issues.apache.org/jira/browse/XALANJ-2419
+
+			    log.info("Working around https://issues.apache.org/jira/browse/XALANJ-2419" );
+				
+			    Properties p = xformer.getOutputProperties();
+			    String method = p.getProperty("method");
+			    System.out.println("method: " + method);
+			    if (method==null || method.equals("xml")) {
+			    
+					((org.apache.xalan.transformer.TransformerImpl)xformer).setOutputProperty(
+							S_KEY_CONTENT_HANDLER, "org.docx4j.org.apache.xml.serializer.ToXMLStream"); 
+				
+			    } else if ( method.equals("html")) {
+
+			    	((org.apache.xalan.transformer.TransformerImpl)xformer).setOutputProperty(
+							S_KEY_CONTENT_HANDLER, "org.docx4j.org.apache.xml.serializer.ToHTMLStream"); 
+				
+			    } else if ( method.equals("text")) {
+			    	
+			    	((org.apache.xalan.transformer.TransformerImpl)xformer).setOutputProperty(
+							S_KEY_CONTENT_HANDLER, "org.docx4j.org.apache.xml.serializer.ToTextStream"); 
+			    	
+			    } else {
+			    	
+			    	log.warn("fallback for method: " + method);
+			    	((org.apache.xalan.transformer.TransformerImpl)xformer).setOutputProperty(
+							S_KEY_CONTENT_HANDLER, "org.docx4j.org.apache.xml.serializer.ToUnknownStream"); 
+			    	
+			    }
+			    	
+				/* That wasn't quite enough:
+				 * 
+					at org.docx4j.org.apache.xml.serializer.ToXMLStream.startDocumentInternal(ToXMLStream.java:143)
+					at org.docx4j.org.apache.xml.serializer.SerializerBase.startDocument(SerializerBase.java:1190)
+					at org.apache.xml.serializer.ToSAXHandler.startDocumentInternal(ToSAXHandler.java:97)
+					at org.apache.xml.serializer.ToSAXHandler.flushPending(ToSAXHandler.java:273)
+					at org.apache.xml.serializer.ToXMLSAXHandler.startPrefixMapping(ToXMLSAXHandler.java:350)
+					at org.apache.xml.serializer.ToXMLSAXHandler.startPrefixMapping(ToXMLSAXHandler.java:320)
+					at org.apache.xalan.templates.ElemLiteralResult.execute(ElemLiteralResult.java:1317)
+				 *
+				 * (TransformerImpl's createSerializationHandler makes a new org.apache.xml.serializer.ToXMLSAXHandler.ToXMLSAXHandler
+				 * and that's hard coded.)
+				 * 
+				 * But it seems to be enough now...
+					 
+				 */
+			}
+			
+		} else {
+			
 			log
 					.error("Detected "
 							+ xformer.getClass().getName()
 							+ ", but require org.apache.xalan.transformer.TransformerImpl. "
-							+ "Ensure Xalan 2.7.0 is on your classpath!");
+							+ "Ensure Xalan 2.7.x is on your classpath!");
 		}
 		LoggingErrorListener errorListener = new LoggingErrorListener(false);
 		xformer.setErrorListener(errorListener);
@@ -1094,9 +1339,17 @@ public class XmlUtils {
 			Object jaxbElement, String xpathExpr, boolean refreshXmlFirst) 
 			throws JAXBException, XPathBinderAssociationIsPartialException {
 		
+		if (binder == null) {
+			log.warn("null binder");
+		}
+		if (jaxbElement == null) {
+			log.warn("null jaxbElement");
+		}
+		
 		Node node;
-		if (refreshXmlFirst) 
+		if (refreshXmlFirst) {
 			node = binder.updateXML(jaxbElement);
+		}
 		node = binder.getXMLNode(jaxbElement);
 		if (node==null) {
 			throw new XPathBinderAssociationIsPartialException("binder.getXMLNode returned null");

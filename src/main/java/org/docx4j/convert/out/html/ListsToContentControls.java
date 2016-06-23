@@ -64,8 +64,8 @@ import org.w3c.dom.Element;
  * 
  * This class does step 1.  
  * 
- * Step 2 is implemented by ....;  it will only be used if 
- * property docx4j.Convert.Out.HTML.Lists is set.
+ * Step 2 is implemented by SdtToListSdtTagHandler;  it will only be used if you invoke
+ * SdtWriter.registerTagHandler("HTML_ELEMENT", new SdtToListSdtTagHandler())
  * 
  * @author jharrop
  *
@@ -221,8 +221,11 @@ public class ListsToContentControls {
 		
 		for (Object o : bodyElts) {
 			
+			Object unwrapped;
 			if (o instanceof JAXBElement) {
-				o = ((JAXBElement)o).getValue();
+				unwrapped = ((JAXBElement)o).getValue();
+			} else {
+				unwrapped=o;
 			}
 
 			/*
@@ -231,16 +234,16 @@ public class ListsToContentControls {
 			 * we'll finish the lists.
 			 */
 					
-			if (o instanceof P) {
+			if (unwrapped instanceof P) {
 				
-				paragraph = (P)o;				
+				paragraph = (P)unwrapped;				
 				PPr ppr = propertyResolver.getEffectivePPr(paragraph.getPPr());
 				
 				NumPr numPr = ppr.getNumPr();
 				
 				if (numPr==null) {
 					closeAllLists();
-					resultElts.add(o);
+					resultElts.add(unwrapped);
 					continue;
 				}
 				
@@ -311,7 +314,7 @@ public class ListsToContentControls {
 				} else if (numId==null) {
 					log.error("TODO: encountered null numId!");
 					closeAllLists();
-					resultElts.add(o);
+					resultElts.add(unwrapped);
 					continue;	
 				} else // (numId.equals(listSpec.numId)) 
 				{
@@ -338,12 +341,12 @@ public class ListsToContentControls {
 						}
 						
 					} else {
-						System.out.println("popping");
+						log.debug("popping");
 						// shallower, so pop levels
 						for (int i=listSpec.ilvl.intValue(); i>ilvl.intValue(); i--) {
 							listStack.pop();
 							listSpec = listStack.peek();
-							System.out.println("popped!");
+							log.debug("popped!");
 						}
 						
 					}
@@ -351,12 +354,12 @@ public class ListsToContentControls {
 				} 
 				
 				
-			} else if (o instanceof Tbl) {
+			} else if (unwrapped instanceof Tbl) {
 				closeAllLists();
-				resultElts.add(o);
+				resultElts.add(unwrapped);
 				
 			} else {
-				log.warn("TODO: handle " + o.getClass().getName());
+				log.warn("TODO: handle " + unwrapped.getClass().getName());
 				closeAllLists();
 				resultElts.add(o);
 			}
